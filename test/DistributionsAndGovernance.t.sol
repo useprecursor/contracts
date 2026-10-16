@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.26;
+
+import {Base} from "./Base.t.sol";
+import {PrecursorShareToken} from "../src/PrecursorShareToken.sol";
+import {DistributionVault} from "../src/DistributionVault.sol";
+import {Governance} from "../src/Governance.sol";
+
+contract DistributionsAndGovernanceTest is Base {
+    PrecursorShareToken internal common;
+    PrecursorShareToken internal preferred;
+    uint48 internal snapshot;
+
+    function setUp() public override {
+        super.setUp();
+        common = _plainClass("COMMON");
+        preferred = _plainClass("PREFERRED");
+        _verify(alice);
+        _verify(bob);
+        _verify(carol);
+        _verify(treasury);
+        _mint(common, alice, _shares(600));
+        _mint(common, bob, _shares(300));
+        _mint(common, treasury, _shares(100));
+        _mint(preferred, carol, _shares(500));
+        snapshot = common.clock(); // block 1000
+        vm.roll(1_010);
+        // Transfers after the record block do not change entitlements.
+        vm.prank(alice);
+        common.transfer(bob, _shares(600));
+        vm.roll(1_011);
+    }
+
+    // Distributions
+
+    function _distribute(uint256 amount, uint64 deadline) internal returns (uint256 id) {
+        _fund(issuerAdmin, amount, address(distributions));
+        address[] memory excluded = new address[](1);
+        excluded[0] = treasury;
+        vm.prank(issuerAdmin);
+        id = distributions.fund(address(common), address(usdg), amount, snapshot, deadline, excluded);
+    }
+
+    function test_ProRataAtRecordBlock() public {
+        uint256 id = _distribute(_usdg(9_000), 0);
+        assertEq(distributions.claimable(id, alice), _usdg(6_000));
+        assertEq(distributions.claimable(id, bob), _usdg(3_000));
+        assertEq(distributions.claimable(id, treasury), 0);
+
+        vm.prank(alice);
+        distributions.claim(id);
+        distributions.claimFor(id, bob); // a relayer claims for bob
+        assertEq(usdg.balanceOf(alice), _usdg(6_000));
+        assertEq(usdg.balanceOf(bob), _usdg(3_000));
+
+        vm.prank(alice);
+        vm.expectRevert(DistributionVault.NothingToClaim.selector);
+        distributions.claim(id);
+    }
+
+    function test_DeadlineAndSweep() public {
+        vm.prank(issuerAdmin);
+        vm.expectRevert(DistributionVault.InvalidParams.selector);
+        distributions.fund(address(common), address(usdg), 1, snapshot, uint64(T0 + 30 days), new address[](0));
+
+        uint256 id = _distribute(_usdg(9_000), uint64(T0 + 400 days));
+        vm.prank(alice);
+        distributions.claim(id);
+        vm.warp(T0 + 400 days);
+        vm.prank(bob);
+        vm.expectRevert(DistributionVault.DeadlinePassed.selector);
+        distributions.claim(id);
+        vm.prank(issuerAdmin);
+        distributions.sweep(id);
+        assertEq(usdg.balanceOf(treasury), _usdg(3_000));
+    }
+
+    function test_RecordBlockMustBeInThePast() public {
+        uint48 future = common.clock();
+        vm.prank(issuerAdmin);
+        vm.expectRevert(DistributionVault.InvalidParams.selector);
+        distributions.fund(address(common), address(usdg), 1, future, 0, new address[](0));
+    }
+
+    // Governance
+
+    function _propose(uint16 quorumBps) internal returns (uint256 id) {
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(common);
+        tokens[1] = address(preferred);
+        vm.prank(issuerAdmin);
+        id = governance.propose(
+            Governance.ProposalParams({
+                shareTokens: tokens,
+                snapshotBlock: snapshot,
+                endsAt: uint64(T0 + 7 days),
+                quorumBps: quorumBps,
+                options: 2,
+                binding: true,
+                documentHash: keccak256("proposal")
+            })
+        );
+    }
+
+    function test_VoteAcrossClasses() public {
+        uint256 id = _propose(5_000);
+        vm.prank(alice);
+        governance.castVote(id, 1); // 600
+        vm.prank(carol);
+        governance.castVote(id, 0); // 500
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(Governance.AlreadyVoted.selector, alice));
+        governance.castVote(id, 0);
+
+        vm.expectRevert(Governance.VotingOpen.selector);
+        governance.finalize(id);
+        vm.warp(T0 + 7 days);
+        governance.finalize(id);
+        assertEq(governance.proposal(id).result, 1);
+    }
+
+    function test_QuorumNotMet() public {
+        uint256 id = _propose(9_000);
+        vm.prank(bob);
+        governance.castVote(id, 0);
+        vm.warp(T0 + 7 days);
+        governance.finalize(id);
+        assertEq(governance.proposal(id).result, governance.NO_QUORUM());
+    }
+
+    function test_DelegationIsJudgedAtSnapshot() public {
+        vm.prank(bob);
+        governance.delegate(carol);
+        vm.roll(1_012);
+        snapshot = 1_012; // bob holds 900 common here
+        vm.roll(1_013);
+
+        uint256 id = _propose(0);
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Governance.NotDelegate.selector, bob));
+        governance.castVote(id, 0);
+
+        address[] memory delegators = new address[](1);
+        delegators[0] = bob;
+        vm.prank(carol);
+        governance.castVoteFor(id, 1, delegators);
+        vm.prank(carol);
+        governance.castVote(id, 1); // carol's own 500 preferred
+        assertEq(governance.proposal(id).totalWeight, _shares(1_400));
+
+        // Delegating after the snapshot changes nothing for this proposal.
+        vm.prank(bob);
+        governance.delegate(address(0));
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(Governance.AlreadyVoted.selector, bob));
+        governance.castVoteFor(id, 1, delegators);
+    }
+}
