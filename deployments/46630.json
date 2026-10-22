@@ -1,0 +1,19 @@
+{
+  "chainId": 46630,
+  "demo": {
+    "common": "0x1239b8f358fc52d0438a0aC3749521910387db18",
+    "companyId": "NORTHWIND_LABS",
+    "disclosureRegistry": "0x782a6f9A5B01BFd3a9f49188465CF08B9099C66D",
+    "distributionVault": "0x0058fa62cE5914ebd408605192bee8FEA44e7449",
+    "governance": "0xF79057f95c658a544b98A43823CA3001dBf99fE0",
+    "identityRegistry": "0x8542d5CB498b2433D58034e1F0b6583E06688D1C",
+    "issuerTimelock": "0x723B88056b9cC98e011E733079B8CE0A26dDD5b7",
+    "liquidityWindow": "0xfb003c337Aba5E270ec755a54CaDe0b3daDBb4A2",
+    "offeringVault": "0x243F08AB63404eB8F17560F2aFe46d26C0D686FA",
+    "rfqSettlement": "0xd3A08307d15C7dD85b48B0DB663e452e6D52833a",
+    "seriesB": "0x7B95D8Fb7B505910c93E9a2222fC2Dd60618762a",
+    "trustedVerifiers": "0x6d4528a3576186e4a5B1e11545a6Ba9fAFD9a797"
+  },
+  "factory": "0x978B307bD588D5dbED757a197aF54024F13FCABF",
+  "stablecoin": "0xD6A6bD7e6485496E9611c0A8400bde5f5E5000f3"
+}
