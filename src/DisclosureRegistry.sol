@@ -29,6 +29,7 @@ contract DisclosureRegistry is AccessControl, Initializable {
     error InvalidKind();
     error InvalidHash();
     error UnknownDocument();
+    error AlreadyAnchored(uint256 documentId);
 
     bytes32 private _companyId;
     Document[] private _documents;
@@ -50,6 +51,7 @@ contract DisclosureRegistry is AccessControl, Initializable {
         return _companyId;
     }
 
+    /// @notice Each hash can be anchored once, so `documentIdByHash` always points at the original record.
     /// @return documentId Ids start at 1, so 0 always means "no document".
     function anchor(bytes32 kind, bytes32 hash, string calldata uri)
         external
@@ -58,6 +60,7 @@ contract DisclosureRegistry is AccessControl, Initializable {
     {
         if (!isKnownKind(kind)) revert InvalidKind();
         if (hash == bytes32(0)) revert InvalidHash();
+        if (documentIdByHash[hash] != 0) revert AlreadyAnchored(documentIdByHash[hash]);
         _documents.push(Document({kind: kind, hash: hash, uri: uri, timestamp: uint64(block.timestamp)}));
         documentId = _documents.length;
         documentIdByHash[hash] = documentId;

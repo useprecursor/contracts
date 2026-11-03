@@ -117,6 +117,10 @@ contract PlatformTest is Base {
         assertEq(disclosures.documentIdByHash(hash), 1);
 
         vm.prank(issuerAdmin);
+        vm.expectRevert(abi.encodeWithSelector(DisclosureRegistry.AlreadyAnchored.selector, 1));
+        disclosures.anchor("COMPANY_UPDATE", hash, "ipfs://copy");
+
+        vm.prank(issuerAdmin);
         vm.expectRevert(DisclosureRegistry.InvalidKind.selector);
         disclosures.anchor("MEME", hash, "");
         vm.prank(alice);
