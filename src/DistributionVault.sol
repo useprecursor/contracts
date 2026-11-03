@@ -45,6 +45,7 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
     error NothingToClaim();
     error DeadlinePassed();
     error NotSweepable();
+    error UnknownDistribution();
 
     bytes32 public companyId;
     IPrecursorFactory public factory;
@@ -115,9 +116,11 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
         emit DistributionFunded(distributionId, asset, amount, recordBlock);
     }
 
+    /// @notice What `holder` could claim right now. Zero once the claim deadline has passed.
     function claimable(uint256 distributionId, address holder) public view returns (uint256) {
-        Distribution storage d = _distributions[distributionId];
+        Distribution storage d = _get(distributionId);
         if (excluded[distributionId][holder] || hasClaimed[distributionId][holder] || d.swept) return 0;
+        if (d.claimDeadline != 0 && block.timestamp >= d.claimDeadline) return 0;
         uint256 balance = IPrecursorShareToken(d.shareToken).balanceOfAt(holder, d.recordBlock);
         return (balance * d.amount) / d.eligibleSupply;
     }
@@ -126,13 +129,20 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
         _claim(distributionId, msg.sender);
     }
 
+    /// @notice Claims several distributions in one transaction. Reverts if any of them has nothing to claim.
+    function claimMany(uint256[] calldata distributionIds) external {
+        for (uint256 i; i < distributionIds.length; ++i) {
+            _claim(distributionIds[i], msg.sender);
+        }
+    }
+
     /// @notice Pays a holder's entitlement to the holder. Lets a relayer claim on someone's behalf.
     function claimFor(uint256 distributionId, address holder) external {
         _claim(distributionId, holder);
     }
 
     function sweep(uint256 distributionId) external onlyRole(Roles.ISSUER_ADMIN) nonReentrant {
-        Distribution storage d = _distributions[distributionId];
+        Distribution storage d = _get(distributionId);
         if (d.claimDeadline == 0 || block.timestamp < d.claimDeadline || d.swept) revert NotSweepable();
         d.swept = true;
         uint256 remaining = d.amount - d.claimed;
@@ -141,7 +151,7 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
     }
 
     function distribution(uint256 distributionId) external view returns (Distribution memory) {
-        return _distributions[distributionId];
+        return _get(distributionId);
     }
 
     function distributionCount() external view returns (uint256) {
@@ -149,7 +159,7 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
     }
 
     function _claim(uint256 distributionId, address holder) private nonReentrant {
-        Distribution storage d = _distributions[distributionId];
+        Distribution storage d = _get(distributionId);
         if (d.claimDeadline != 0 && block.timestamp >= d.claimDeadline) revert DeadlinePassed();
         uint256 amount = claimable(distributionId, holder);
         if (amount == 0) revert NothingToClaim();
@@ -157,5 +167,10 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
         d.claimed += amount;
         IERC20(d.asset).safeTransfer(holder, amount);
         emit DistributionClaimed(distributionId, holder, amount);
+    }
+
+    function _get(uint256 distributionId) private view returns (Distribution storage) {
+        if (distributionId >= _distributions.length) revert UnknownDistribution();
+        return _distributions[distributionId];
     }
 }

@@ -67,12 +67,33 @@ contract DistributionsAndGovernanceTest is Base {
         vm.prank(alice);
         distributions.claim(id);
         vm.warp(T0 + 400 days);
+        assertEq(distributions.claimable(id, bob), 0);
         vm.prank(bob);
         vm.expectRevert(DistributionVault.DeadlinePassed.selector);
         distributions.claim(id);
         vm.prank(issuerAdmin);
         distributions.sweep(id);
         assertEq(usdg.balanceOf(treasury), _usdg(3_000));
+    }
+
+    function test_ClaimMany() public {
+        uint256 first = _distribute(_usdg(9_000), 0);
+        uint256 second = _distribute(_usdg(3_000), 0);
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = first;
+        ids[1] = second;
+        vm.prank(alice);
+        distributions.claimMany(ids);
+        assertEq(usdg.balanceOf(alice), _usdg(8_000));
+        assertTrue(distributions.hasClaimed(second, alice));
+    }
+
+    function test_UnknownDistribution() public {
+        vm.expectRevert(DistributionVault.UnknownDistribution.selector);
+        distributions.claimable(0, alice);
+        vm.prank(alice);
+        vm.expectRevert(DistributionVault.UnknownDistribution.selector);
+        distributions.claim(0);
     }
 
     function test_RecordBlockMustBeInThePast() public {
