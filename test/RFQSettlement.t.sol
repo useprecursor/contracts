@@ -65,7 +65,9 @@ contract RFQSettlementTest is Base {
         (RFQSettlement.Quote memory q, bytes memory sig) = _quote(1, 100, 30e6, 1);
         vm.startPrank(bob);
         rfq.fill(q, sig, _shares(40));
+        assertEq(rfq.remaining(q), _shares(60));
         rfq.fill(q, sig, _shares(60));
+        assertEq(rfq.remaining(q), 0);
         vm.expectRevert(RFQSettlement.Overfill.selector);
         rfq.fill(q, sig, 1);
         vm.stopPrank();
@@ -80,9 +82,15 @@ contract RFQSettlementTest is Base {
         vm.expectRevert(RFQSettlement.QuoteCancelledError.selector);
         rfq.fill(q, sig, 1);
 
+        assertEq(rfq.remaining(q), 0);
+
         (q, sig) = _quote(0, 10, 30e6, 6);
+        assertEq(rfq.remaining(q), _shares(10));
+        vm.expectEmit(address(rfq));
+        emit RFQSettlement.NoncesInvalidated(maker, 7);
         vm.prank(maker);
         rfq.invalidateNoncesBelow(7);
+        assertEq(rfq.remaining(q), 0);
         vm.prank(bob);
         vm.expectRevert(RFQSettlement.QuoteCancelledError.selector);
         rfq.fill(q, sig, 1);

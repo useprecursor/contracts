@@ -48,6 +48,7 @@ contract RFQSettlement is AccessControl, Initializable, ReentrancyGuard, EIP712 
         bytes32 indexed quoteHash, address indexed maker, address indexed taker, uint256 quantity, uint256 price
     );
     event QuoteCancelled(address indexed maker, uint256 nonce);
+    event NoncesInvalidated(address indexed maker, uint256 minNonce);
     event ShareClassEnabled(address indexed shareToken, bool enabled);
     event FeesUpdated(address recipient, uint16 sellerFeeBps, uint16 buyerFeeBps);
 
@@ -119,6 +120,13 @@ contract RFQSettlement is AccessControl, Initializable, ReentrancyGuard, EIP712 
         );
     }
 
+    /// @notice Quantity still fillable on a quote, or zero if it has expired or been cancelled. Does not check the
+    ///         signature or either party's balances and approvals.
+    function remaining(Quote calldata q) external view returns (uint256) {
+        if (block.timestamp >= q.expiry || cancelled[q.maker][q.nonce] || q.nonce < minNonce[q.maker]) return 0;
+        return q.quantity - filled[hashQuote(q)];
+    }
+
     function fill(Quote calldata q, bytes calldata signature, uint256 quantity) external nonReentrant {
         if (!enabled[q.shareToken]) revert NotEnabled();
         if (block.timestamp >= q.expiry) revert Expired();
@@ -156,7 +164,7 @@ contract RFQSettlement is AccessControl, Initializable, ReentrancyGuard, EIP712 
     function invalidateNoncesBelow(uint256 newMinNonce) external {
         if (newMinNonce <= minNonce[msg.sender]) revert InvalidParams();
         minNonce[msg.sender] = newMinNonce;
-        emit QuoteCancelled(msg.sender, newMinNonce);
+        emit NoncesInvalidated(msg.sender, newMinNonce);
     }
 
     function _setFees(address recipient, uint16 sellerBps, uint16 buyerBps) private {
