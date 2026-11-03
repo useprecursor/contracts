@@ -44,6 +44,7 @@ contract PoolGate is AccessControl, Initializable {
     }
 
     function removePool(address pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!isPool[pool]) revert UnknownPool();
         isPool[pool] = false;
         emit PoolRemoved(pool);
     }

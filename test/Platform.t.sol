@@ -175,6 +175,13 @@ contract PlatformTest is Base {
         vm.expectRevert();
         gate.beforeAddLiquidity(bob);
 
+        vm.prank(address(timelock));
+        gate.removePool(pool);
+        assertEq(gate.checkSwap(pool, alice, 1), ReasonCodes.NOT_ELIGIBLE);
+        vm.prank(address(timelock));
+        vm.expectRevert(PoolGate.UnknownPool.selector);
+        gate.removePool(pool);
+
         address[] memory venues = new address[](0);
         vm.prank(precursor);
         PrecursorShareToken rofrToken = PrecursorShareToken(
