@@ -54,6 +54,8 @@ contract ValuationOracle is IValuationOracle, AccessControl, Initializable {
         if (price <= 0) revert InvalidPrice();
         if (source > uint8(Source.WINDOW_CLEARING)) revert InvalidSource();
         if (asOf == 0 || asOf > block.timestamp) revert InvalidDate();
+        // Keep rounds in date order so the latest round is always the most recent valuation.
+        if (_rounds.length != 0 && asOf < _rounds[_rounds.length - 1].asOf) revert InvalidDate();
         if (IPrecursorShareToken(_token).paused()) revert TokenPaused();
         _rounds.push(
             Round({

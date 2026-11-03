@@ -144,6 +144,10 @@ contract PlatformTest is Base {
         assertEq(oracle.description(), "NWD / USD reference valuation");
 
         vm.prank(issuerAdmin);
+        vm.expectRevert(ValuationOracle.InvalidDate.selector);
+        oracle.publish(11e8, 1, uint64(T0 - 2 days), 0);
+
+        vm.prank(issuerAdmin);
         token.pause("split");
         vm.prank(issuerAdmin);
         vm.expectRevert(ValuationOracle.TokenPaused.selector);
