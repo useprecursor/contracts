@@ -11,6 +11,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IPrecursorShareToken} from "./interfaces/IPrecursorShareToken.sol";
 import {IPrecursorFactory} from "./interfaces/IPrecursorFactory.sol";
 import {IValuationOracle} from "./interfaces/IValuationOracle.sol";
+import {IIdentityRegistry} from "./interfaces/IIdentityRegistry.sol";
 import {Roles} from "./libraries/Roles.sol";
 
 /// @title OfferingVault
@@ -24,6 +25,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant MAX_SUBSCRIBERS = 500;
+    uint256 public constant MAX_REQUIRED_CLAIMS = 8;
     uint16 public constant MAX_FEE_BPS = 500;
 
     enum State {
@@ -115,8 +117,9 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
             revert NotCompanyToken();
         }
         if (
-            p.pricePerShare == 0 || p.maxRaise == 0 || p.minRaise > p.maxRaise || p.closesAt <= p.opensAt
-                || p.closesAt <= block.timestamp || p.stablecoin == address(0) || p.treasury == address(0)
+            p.pricePerShare == 0 || p.maxRaise == 0 || p.minRaise > p.maxRaise || p.minTicket > p.maxRaise
+                || p.closesAt <= p.opensAt || p.closesAt <= block.timestamp || p.stablecoin == address(0)
+                || p.treasury == address(0) || p.requiredClaims.length > MAX_REQUIRED_CLAIMS
         ) revert InvalidParams();
 
         _offerings.push();
@@ -148,8 +151,9 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
 
         uint256 total = subscriptionOf[offeringId][msg.sender] + amount;
         if (amount == 0 || total < p.minTicket) revert BelowMinimumTicket();
+        IIdentityRegistry registry = IPrecursorShareToken(p.shareToken).identityRegistry();
         for (uint256 i; i < p.requiredClaims.length; ++i) {
-            if (!IPrecursorShareToken(p.shareToken).identityRegistry().hasValidClaim(msg.sender, p.requiredClaims[i])) {
+            if (!registry.hasValidClaim(msg.sender, p.requiredClaims[i])) {
                 revert MissingClaim(p.requiredClaims[i]);
             }
         }

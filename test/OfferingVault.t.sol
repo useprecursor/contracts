@@ -174,4 +174,29 @@ contract OfferingVaultTest is Base {
             })
         );
     }
+
+    function test_RejectsBadParams() public {
+        OfferingVault.OfferingParams memory p = OfferingVault.OfferingParams({
+            shareToken: address(token),
+            pricePerShare: PRICE,
+            minRaise: 0,
+            maxRaise: _usdg(10_000),
+            minTicket: _usdg(20_000),
+            opensAt: uint64(T0),
+            closesAt: uint64(T0 + 1 days),
+            stablecoin: address(usdg),
+            requiredClaims: new bytes32[](0),
+            treasury: treasury,
+            documentId: 0
+        });
+        vm.prank(issuerAdmin);
+        vm.expectRevert(OfferingVault.InvalidParams.selector);
+        offerings.createOffering(p);
+
+        p.minTicket = 0;
+        p.requiredClaims = new bytes32[](offerings.MAX_REQUIRED_CLAIMS() + 1);
+        vm.prank(issuerAdmin);
+        vm.expectRevert(OfferingVault.InvalidParams.selector);
+        offerings.createOffering(p);
+    }
 }
