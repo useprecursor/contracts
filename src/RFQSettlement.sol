@@ -156,8 +156,14 @@ contract RFQSettlement is AccessControl, Initializable, ReentrancyGuard, EIP712 
     }
 
     function cancelQuote(uint256 nonce) external {
-        cancelled[msg.sender][nonce] = true;
-        emit QuoteCancelled(msg.sender, nonce);
+        _cancel(nonce);
+    }
+
+    /// @notice Cancels several quotes at once, for makers pulling specific quotes without bumping their min nonce.
+    function cancelQuotes(uint256[] calldata nonces) external {
+        for (uint256 i; i < nonces.length; ++i) {
+            _cancel(nonces[i]);
+        }
     }
 
     /// @notice Invalidates every quote from the caller with a nonce below `newMinNonce`.
@@ -165,6 +171,11 @@ contract RFQSettlement is AccessControl, Initializable, ReentrancyGuard, EIP712 
         if (newMinNonce <= minNonce[msg.sender]) revert InvalidParams();
         minNonce[msg.sender] = newMinNonce;
         emit NoncesInvalidated(msg.sender, newMinNonce);
+    }
+
+    function _cancel(uint256 nonce) private {
+        cancelled[msg.sender][nonce] = true;
+        emit QuoteCancelled(msg.sender, nonce);
     }
 
     function _setFees(address recipient, uint16 sellerBps, uint16 buyerBps) private {

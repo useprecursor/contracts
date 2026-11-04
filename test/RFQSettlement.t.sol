@@ -96,6 +96,23 @@ contract RFQSettlementTest is Base {
         rfq.fill(q, sig, 1);
     }
 
+    function test_CancelQuotesInBatch() public {
+        (RFQSettlement.Quote memory a, bytes memory sigA) = _quote(0, 10, 30e6, 3);
+        (RFQSettlement.Quote memory b,) = _quote(0, 10, 30e6, 4);
+        (RFQSettlement.Quote memory keep,) = _quote(0, 10, 30e6, 9);
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = 3;
+        nonces[1] = 4;
+        vm.prank(maker);
+        rfq.cancelQuotes(nonces);
+        assertEq(rfq.remaining(a), 0);
+        assertEq(rfq.remaining(b), 0);
+        assertEq(rfq.remaining(keep), _shares(10));
+        vm.prank(bob);
+        vm.expectRevert(RFQSettlement.QuoteCancelledError.selector);
+        rfq.fill(a, sigA, 1);
+    }
+
     function test_ExpiryAndSignature() public {
         (RFQSettlement.Quote memory q, bytes memory sig) = _quote(0, 10, 30e6, 1);
         q.price = 1e6; // tampered
