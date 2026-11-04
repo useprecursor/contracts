@@ -39,6 +39,7 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
     event DistributionFunded(uint256 indexed distributionId, address asset, uint256 amount, uint256 recordBlock);
     event DistributionClaimed(uint256 indexed distributionId, address indexed holder, uint256 amount);
     event DistributionSwept(uint256 indexed distributionId, uint256 amount);
+    event TreasuryUpdated(address treasury);
 
     error NotCompanyToken();
     error InvalidParams();
@@ -73,6 +74,7 @@ contract DistributionVault is AccessControl, Initializable, ReentrancyGuard {
     function setTreasury(address treasury_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (treasury_ == address(0)) revert InvalidParams();
         treasury = treasury_;
+        emit TreasuryUpdated(treasury_);
     }
 
     function fund(

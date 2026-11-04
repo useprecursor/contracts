@@ -96,6 +96,19 @@ contract DistributionsAndGovernanceTest is Base {
         distributions.claim(0);
     }
 
+    function test_SetTreasury() public {
+        address newTreasury = makeAddr("newTreasury");
+        vm.expectEmit(address(distributions));
+        emit DistributionVault.TreasuryUpdated(newTreasury);
+        vm.prank(address(timelock));
+        distributions.setTreasury(newTreasury);
+        assertEq(distributions.treasury(), newTreasury);
+
+        vm.prank(address(timelock));
+        vm.expectRevert(DistributionVault.InvalidParams.selector);
+        distributions.setTreasury(address(0));
+    }
+
     function test_RecordBlockMustBeInThePast() public {
         uint48 future = common.clock();
         vm.prank(issuerAdmin);
