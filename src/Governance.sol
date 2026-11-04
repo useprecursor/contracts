@@ -59,6 +59,7 @@ contract Governance is AccessControl, Initializable {
     error DelegateNotVerified();
     error AlreadyFinalized();
     error NoWeight();
+    error UnknownProposal();
 
     bytes32 public companyId;
     IPrecursorFactory public factory;
@@ -109,7 +110,7 @@ contract Governance is AccessControl, Initializable {
 
         _proposals.push();
         proposalId = _proposals.length - 1;
-        Proposal storage prop = _proposals[proposalId];
+        Proposal storage prop = _get(proposalId);
         prop.params = p;
         prop.tallies = new uint256[](p.options);
         prop.multipliers = new uint256[](n);
@@ -151,7 +152,7 @@ contract Governance is AccessControl, Initializable {
     }
 
     function finalize(uint256 proposalId) external {
-        Proposal storage prop = _proposals[proposalId];
+        Proposal storage prop = _get(proposalId);
         if (prop.finalized) revert AlreadyFinalized();
         if (block.timestamp < prop.params.endsAt) revert VotingOpen();
         prop.finalized = true;
@@ -177,7 +178,7 @@ contract Governance is AccessControl, Initializable {
     }
 
     function proposal(uint256 proposalId) external view returns (Proposal memory) {
-        return _proposals[proposalId];
+        return _get(proposalId);
     }
 
     function proposalCount() external view returns (uint256) {
@@ -185,7 +186,7 @@ contract Governance is AccessControl, Initializable {
     }
 
     function weightOf(uint256 proposalId, address voter) public view returns (uint256 weight) {
-        Proposal storage prop = _proposals[proposalId];
+        Proposal storage prop = _get(proposalId);
         for (uint256 i; i < prop.params.shareTokens.length; ++i) {
             uint256 balance =
                 IPrecursorShareToken(prop.params.shareTokens[i]).balanceOfAt(voter, prop.params.snapshotBlock);
@@ -194,7 +195,7 @@ contract Governance is AccessControl, Initializable {
     }
 
     function _open(uint256 proposalId, uint8 option) private view returns (Proposal storage prop) {
-        prop = _proposals[proposalId];
+        prop = _get(proposalId);
         if (prop.finalized || block.timestamp >= prop.params.endsAt) revert VotingClosed();
         if (option >= prop.params.options) revert InvalidParams();
     }
@@ -203,5 +204,10 @@ contract Governance is AccessControl, Initializable {
         if (hasVoted[proposalId][voter]) revert AlreadyVoted(voter);
         hasVoted[proposalId][voter] = true;
         return weightOf(proposalId, voter);
+    }
+
+    function _get(uint256 proposalId) private view returns (Proposal storage) {
+        if (proposalId >= _proposals.length) revert UnknownProposal();
+        return _proposals[proposalId];
     }
 }

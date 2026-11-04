@@ -136,6 +136,16 @@ contract DistributionsAndGovernanceTest is Base {
         );
     }
 
+    function test_UnknownProposal() public {
+        vm.prank(alice);
+        vm.expectRevert(Governance.UnknownProposal.selector);
+        governance.castVote(0, 1);
+        vm.expectRevert(Governance.UnknownProposal.selector);
+        governance.finalize(0);
+        vm.expectRevert(Governance.UnknownProposal.selector);
+        governance.weightOf(0, alice);
+    }
+
     function test_VoteAcrossClasses() public {
         uint256 id = _propose(5_000);
         vm.prank(alice);
