@@ -63,6 +63,10 @@ contract ShareTokenTest is Base {
         registry.removeIdentity(alice);
         (, code) = token.canTransfer(alice, bob, 1);
         assertEq(code, ReasonCodes.SENDER_NOT_VERIFIED);
+
+        vm.prank(operator);
+        vm.expectRevert(IdentityRegistry.UnknownIdentity.selector);
+        registry.removeIdentity(alice);
     }
 
     function test_ExpiredClaimReportsClaimExpired() public {
@@ -227,6 +231,9 @@ contract ShareTokenTest is Base {
         assertEq(registry.claimOf(carol, Topics.IDENTITY_VERIFIED).verifier, verifier);
 
         vm.prank(verifier);
+        registry.revokeClaim(carol, Topics.IDENTITY_VERIFIED);
+        vm.prank(operator);
+        vm.expectRevert(IdentityRegistry.NoClaim.selector);
         registry.revokeClaim(carol, Topics.IDENTITY_VERIFIED);
         vm.expectRevert(IdentityRegistry.SignatureUsed.selector);
         registry.addClaim(carol, Topics.IDENTITY_VERIFIED, "", expiry, verifier, sig);

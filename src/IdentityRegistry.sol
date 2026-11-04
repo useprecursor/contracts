@@ -30,6 +30,8 @@ contract IdentityRegistry is IIdentityRegistry, AccessControl, Initializable, EI
     error SignatureUsed();
     error ClaimExpired();
     error NotAuthorized();
+    error UnknownIdentity();
+    error NoClaim();
 
     bytes32 private _companyId;
     ITrustedVerifiers private _verifiers;
@@ -72,6 +74,7 @@ contract IdentityRegistry is IIdentityRegistry, AccessControl, Initializable, EI
     }
 
     function removeIdentity(address wallet) external onlyRole(Roles.OPERATOR) {
+        if (_identityOf[wallet] == address(0)) revert UnknownIdentity();
         delete _identityOf[wallet];
         emit IdentityRemoved(wallet);
     }
@@ -119,6 +122,7 @@ contract IdentityRegistry is IIdentityRegistry, AccessControl, Initializable, EI
 
     function revokeClaim(address identity, bytes32 topic) external {
         Claim storage c = _claims[identity][topic];
+        if (c.verifier == address(0)) revert NoClaim();
         if (msg.sender != c.verifier && !hasRole(Roles.OPERATOR, msg.sender)) revert NotAuthorized();
         delete _claims[identity][topic];
         emit ClaimRevoked(identity, topic);
