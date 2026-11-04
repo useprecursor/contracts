@@ -67,15 +67,20 @@ contract PlatformTest is Base {
         bytes memory data = abi.encodeCall(IssuerTimelock.setThreshold, (3));
         vm.prank(signer1);
         bytes32 id = timelock.propose(address(timelock), 0, data, "t");
+        assertEq(timelock.approvalCount(id), 1);
         vm.expectRevert(IssuerTimelock.NotQueued.selector);
         timelock.execute(id);
 
         vm.prank(signer2);
         timelock.approve(id);
+        assertEq(timelock.approvalCount(id), 2);
+        assertFalse(timelock.isReady(id));
         vm.expectRevert(IssuerTimelock.TooEarly.selector);
         timelock.execute(id);
         vm.warp(T0 + 48 hours);
+        assertTrue(timelock.isReady(id));
         timelock.execute(id);
+        assertFalse(timelock.isReady(id));
         assertEq(timelock.threshold(), 3);
     }
 
@@ -87,7 +92,9 @@ contract PlatformTest is Base {
         _timelocked(address(timelock), abi.encodeCall(IssuerTimelock.removeSigner, (signer1)));
         vm.prank(signer2);
         timelock.approve(id); // queued: two approvals recorded, but signer1 no longer counts
+        assertEq(timelock.approvalCount(id), 1);
         vm.warp(block.timestamp + 72 hours);
+        assertFalse(timelock.isReady(id));
         vm.expectRevert(IssuerTimelock.NotQueued.selector);
         timelock.execute(id);
     }

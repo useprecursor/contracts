@@ -143,6 +143,18 @@ contract IssuerTimelock is Initializable, ReentrancyGuard {
         return _actions[id];
     }
 
+    /// @notice Approvals that would count if the action were executed now, i.e. from current signers only.
+    function approvalCount(bytes32 id) external view returns (uint256) {
+        return _validApprovals(_actions[id]);
+    }
+
+    /// @notice True when `execute` would go ahead: queued, enough current approvals, delay elapsed, still open.
+    function isReady(bytes32 id) external view returns (bool) {
+        Action storage a = _actions[id];
+        return a.target != address(0) && !a.executed && !a.cancelled && a.eta != 0 && block.timestamp >= a.eta
+            && _validApprovals(a) >= threshold;
+    }
+
     // ---------------------------------------------------------------------------------------------------------------
     // Delays
     // ---------------------------------------------------------------------------------------------------------------
