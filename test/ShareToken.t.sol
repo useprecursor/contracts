@@ -5,6 +5,7 @@ import {Base} from "./Base.t.sol";
 import {PrecursorShareToken} from "../src/PrecursorShareToken.sol";
 import {IPrecursorShareToken, IERC8056} from "../src/interfaces/IPrecursorShareToken.sol";
 import {IdentityRegistry} from "../src/IdentityRegistry.sol";
+import {TrustedVerifiers} from "../src/TrustedVerifiers.sol";
 import {ReasonCodes} from "../src/libraries/ReasonCodes.sol";
 import {Topics} from "../src/libraries/Topics.sol";
 import {Roles} from "../src/libraries/Roles.sol";
@@ -74,6 +75,10 @@ contract ShareTokenTest is Base {
         _timelocked(c.trustedVerifiers, abi.encodeWithSignature("removeVerifier(address)", verifier));
         (, bytes32 code) = token.canTransfer(alice, bob, 1);
         assertEq(code, ReasonCodes.CLAIM_EXPIRED);
+
+        vm.prank(address(timelock));
+        vm.expectRevert(TrustedVerifiers.UnknownVerifier.selector);
+        TrustedVerifiers(c.trustedVerifiers).removeVerifier(verifier);
     }
 
     function test_PauseBlocksEveryTransfer() public {

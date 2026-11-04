@@ -14,6 +14,8 @@ contract TrustedVerifiers is ITrustedVerifiers, AccessControl, Initializable {
 
     error InvalidVerifier();
     error TooManyTopics();
+    error UnknownVerifier();
+    error LengthMismatch();
 
     mapping(address => mapping(bytes32 => bool)) private _trusted;
     mapping(address => bytes32[]) private _topics;
@@ -23,6 +25,7 @@ contract TrustedVerifiers is ITrustedVerifiers, AccessControl, Initializable {
     }
 
     function initialize(address admin, address[] calldata verifiers, bytes32[][] calldata topics) external initializer {
+        if (verifiers.length != topics.length) revert LengthMismatch();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         for (uint256 i; i < verifiers.length; ++i) {
             _add(verifiers[i], topics[i]);
@@ -35,6 +38,7 @@ contract TrustedVerifiers is ITrustedVerifiers, AccessControl, Initializable {
     }
 
     function removeVerifier(address verifier) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_topics[verifier].length == 0) revert UnknownVerifier();
         _remove(verifier);
         emit VerifierRemoved(verifier);
     }
