@@ -74,6 +74,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     error CannotClose();
     error AlreadyFinal();
     error NothingToRefund();
+    error UnknownOffering();
 
     bytes32 public companyId;
     IPrecursorFactory public factory;
@@ -130,7 +131,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
 
     /// @notice Cancels an offering before it closes. Every subscriber can then withdraw in full.
     function cancelOffering(uint256 offeringId) external onlyRole(Roles.ISSUER_ADMIN) {
-        Offering storage o = _offerings[offeringId];
+        Offering storage o = _get(offeringId);
         if (o.closed || o.failed) revert AlreadyFinal();
         o.failed = true;
         emit OfferingFailed(offeringId);
@@ -145,7 +146,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     // ---------------------------------------------------------------------------------------------------------------
 
     function subscribe(uint256 offeringId, uint256 amount) external nonReentrant {
-        Offering storage o = _offerings[offeringId];
+        Offering storage o = _get(offeringId);
         OfferingParams storage p = o.params;
         if (state(offeringId) != State.OPEN || block.timestamp >= p.closesAt) revert NotOpen();
 
@@ -174,7 +175,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     /// @notice Settles an offering. Anyone may call it after `closesAt`; the company may close early once
     ///         `maxRaise` has been reached.
     function close(uint256 offeringId) external nonReentrant {
-        Offering storage o = _offerings[offeringId];
+        Offering storage o = _get(offeringId);
         OfferingParams storage p = o.params;
         if (o.closed || o.failed) revert AlreadyFinal();
         bool ended = block.timestamp >= p.closesAt;
@@ -229,7 +230,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     }
 
     function refund(uint256 offeringId) external nonReentrant {
-        Offering storage o = _offerings[offeringId];
+        Offering storage o = _get(offeringId);
         uint256 amount;
         if (o.failed) {
             amount = subscriptionOf[offeringId][msg.sender];
@@ -248,7 +249,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     // ---------------------------------------------------------------------------------------------------------------
 
     function state(uint256 offeringId) public view returns (State) {
-        Offering storage o = _offerings[offeringId];
+        Offering storage o = _get(offeringId);
         if (o.failed) return State.FAILED;
         if (o.closed) return State.CLOSED;
         if (block.timestamp < o.params.opensAt) return State.SCHEDULED;
@@ -257,7 +258,7 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     }
 
     function offering(uint256 offeringId) external view returns (Offering memory) {
-        return _offerings[offeringId];
+        return _get(offeringId);
     }
 
     function offeringCount() external view returns (uint256) {
@@ -271,6 +272,11 @@ contract OfferingVault is AccessControl, Initializable, ReentrancyGuard {
     // ---------------------------------------------------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------------------------------------------------
+
+    function _get(uint256 offeringId) private view returns (Offering storage) {
+        if (offeringId >= _offerings.length) revert UnknownOffering();
+        return _offerings[offeringId];
+    }
 
     function _sharesFor(uint256 amount, uint256 pricePerShare) private pure returns (uint256) {
         return (amount * 1e18) / pricePerShare;

@@ -199,4 +199,14 @@ contract OfferingVaultTest is Base {
         vm.expectRevert(OfferingVault.InvalidParams.selector);
         offerings.createOffering(p);
     }
+
+    function test_UnknownOffering() public {
+        vm.expectRevert(OfferingVault.UnknownOffering.selector);
+        offerings.state(0);
+        vm.prank(alice);
+        vm.expectRevert(OfferingVault.UnknownOffering.selector);
+        offerings.subscribe(0, _usdg(1_000));
+        vm.expectRevert(OfferingVault.UnknownOffering.selector);
+        offerings.close(0);
+    }
 }
