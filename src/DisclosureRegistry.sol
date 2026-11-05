@@ -34,6 +34,8 @@ contract DisclosureRegistry is AccessControl, Initializable {
     bytes32 private _companyId;
     Document[] private _documents;
     mapping(bytes32 => uint256) public documentIdByHash;
+    /// @notice Most recently anchored document of each kind, or 0 if none.
+    mapping(bytes32 => uint256) public latestDocumentIdOfKind;
 
     constructor() {
         _disableInitializers();
@@ -64,6 +66,7 @@ contract DisclosureRegistry is AccessControl, Initializable {
         _documents.push(Document({kind: kind, hash: hash, uri: uri, timestamp: uint64(block.timestamp)}));
         documentId = _documents.length;
         documentIdByHash[hash] = documentId;
+        latestDocumentIdOfKind[kind] = documentId;
         emit DocumentAnchored(documentId, kind, hash, uri);
     }
 

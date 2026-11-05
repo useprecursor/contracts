@@ -122,6 +122,13 @@ contract PlatformTest is Base {
         assertEq(id, 1);
         assertEq(disclosures.document(id).hash, hash);
         assertEq(disclosures.documentIdByHash(hash), 1);
+        assertEq(disclosures.latestDocumentIdOfKind("BOARD_RESOLUTION"), 1);
+        assertEq(disclosures.latestDocumentIdOfKind("COMPANY_UPDATE"), 0);
+
+        bytes32 hash2 = sha256("board resolution v2");
+        vm.prank(issuerAdmin);
+        uint256 second = disclosures.anchor("BOARD_RESOLUTION", hash2, "ipfs://doc2");
+        assertEq(disclosures.latestDocumentIdOfKind("BOARD_RESOLUTION"), second);
 
         vm.prank(issuerAdmin);
         vm.expectRevert(abi.encodeWithSelector(DisclosureRegistry.AlreadyAnchored.selector, 1));
