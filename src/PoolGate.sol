@@ -23,6 +23,7 @@ contract PoolGate is AccessControl, Initializable {
     error ROFRIncompatible();
     error NotVenue();
     error UnknownPool();
+    error PoolAlreadyRegistered();
 
     IPrecursorShareToken public token;
     mapping(address => bool) public isPool;
@@ -37,6 +38,7 @@ contract PoolGate is AccessControl, Initializable {
     }
 
     function registerPool(address pool) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (isPool[pool]) revert PoolAlreadyRegistered();
         if (token.ruleEngine().hasModule("ROFR")) revert ROFRIncompatible();
         if (!token.isAgent(pool)) revert NotVenue();
         isPool[pool] = true;

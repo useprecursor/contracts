@@ -181,6 +181,9 @@ contract PlatformTest is Base {
         assertTrue(token.isAgent(pool));
         vm.prank(address(timelock));
         gate.registerPool(pool);
+        vm.prank(address(timelock));
+        vm.expectRevert(PoolGate.PoolAlreadyRegistered.selector);
+        gate.registerPool(pool);
 
         _verify(alice);
         _mint(token, pool, _shares(10)); // pools are agents, so they can hold inventory
