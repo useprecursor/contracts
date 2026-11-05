@@ -75,6 +75,12 @@ contract ValuationOracle is IValuationOracle, AccessControl, Initializable {
         return (r.price, r.source, r.asOf, r.documentHash);
     }
 
+    /// @notice Full record for a round, including the source and supporting document that getRoundData leaves out.
+    function round(uint80 roundId) external view returns (Round memory) {
+        if (roundId == 0 || roundId > _rounds.length) revert NoData();
+        return _rounds[roundId - 1];
+    }
+
     function roundCount() external view returns (uint256) {
         return _rounds.length;
     }

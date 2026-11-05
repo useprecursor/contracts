@@ -156,6 +156,12 @@ contract PlatformTest is Base {
         assertEq(updatedAt, T0 - 1 days);
         assertEq(oracle.decimals(), 8);
         assertEq(oracle.description(), "NWD / USD reference valuation");
+        ValuationOracle.Round memory r = oracle.round(1);
+        assertEq(r.source, 1);
+        assertEq(r.documentHash, keccak256("409a"));
+        assertEq(r.publishedAt, block.timestamp);
+        vm.expectRevert(ValuationOracle.NoData.selector);
+        oracle.round(2);
 
         vm.prank(issuerAdmin);
         vm.expectRevert(ValuationOracle.InvalidDate.selector);
